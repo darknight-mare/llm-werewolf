@@ -1,0 +1,10 @@
+{
+  "default": {"provider": "codex"},
+  "seats": {
+    "2": {"provider": "codex"},
+    "3": {"provider": "codex"},
+    "4": {"provider": "codex"},
+    "5": {"provider": "codex"},
+    "6": {"provider": "codex"}
+  }
+}

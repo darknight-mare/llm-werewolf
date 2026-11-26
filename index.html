@@ -1,0 +1,260 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>月隐村 · 狼人杀</title>
+  <style>
+    * { box-sizing: border-box; }
+    body { margin: 0; background: #0d1820; color: #eef2e7; font: 16px/1.65 system-ui, sans-serif; }
+    header, main { max-width: 1200px; margin: auto; padding: 20px; }
+    header { display: flex; align-items: center; justify-content: space-between; border-bottom: 1px solid #344650; }
+    header strong { letter-spacing: .14em; }
+    button, select, textarea { font: inherit; }
+    button { background: #d8e59c; border: 0; border-radius: 8px; padding: 10px 22px; color: #172014; cursor: pointer; font-weight: 650; }
+    button:disabled { opacity: .6; cursor: wait; }
+    button:focus-visible, summary:focus-visible, textarea:focus-visible, select:focus-visible { outline: 2px solid #e2eeb1; outline-offset: 3px; }
+    header button { background: transparent; color: #d3dfd9; border: 1px solid #48616a; padding: 5px 14px; }
+    .banner { position: relative; isolation: isolate; overflow: hidden; padding: 30px; border-radius: 18px; background: linear-gradient(110deg,#21383f,#355660 65%,#657876); }
+    .banner:before { content: ""; position: absolute; z-index: -1; right: 10%; top: 16%; width: 78px; height: 78px; border-radius: 50%; background: #e4e8ba; box-shadow: 0 0 50px #cee4be44; }
+    .banner:after { content: ""; position: absolute; inset: 40% 0 0 48%; background: #203840; z-index: -1; clip-path: polygon(0 100%,25% 34%,36% 64%,57% 5%,70% 50%,82% 22%,100% 70%,100% 100%); }
+    h1 { font: bold clamp(35px,6vw,62px)/1.1 serif; letter-spacing: .1em; margin: 10px 0; }
+    h2 { font-size: 19px; margin: 0 0 12px; }
+    p { margin: 8px 0; }
+    small, .muted { color: #b8c8c6; font-size: .875rem; }
+    .grid { display: grid; grid-template-columns: minmax(320px, .85fr) minmax(0, 1.4fr); gap: 18px; margin-top: 18px; }
+    .panel { padding: 20px; background: #172831; border: 1px solid #30434b; border-radius: 13px; margin-bottom: 16px; }
+    .seats { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+    .seat { padding: 12px; background: #20343d; border-radius: 8px; overflow-wrap: anywhere; }
+    .seat-name { display: flex; align-items: center; gap: 10px; }
+    .seat small { display: block; }
+    .out { opacity: .65; }
+    .mine { outline: 1px solid #b9cb83; }
+    .num { font: italic 26px Georgia; color: #cddea0; }
+    .persona { margin: 10px 0 0; font-size: .875rem; }
+    .persona summary { color: #d8e59c; }
+    .persona p { color: #d2dfd9; line-height: 1.75; }
+    .model { margin-top: 7px; }
+    .log { max-height: 680px; overflow: auto; overscroll-behavior: contain; scrollbar-color: #4f6b71 transparent; padding-right: 10px; }
+    .speech { padding: 18px 0; border-bottom: 1px solid #30434b; }
+    .speech:first-child { padding-top: 0; }
+    .speech h3 { margin: 0 0 8px; color: #d8e59c; font-size: 1rem; }
+    .speech p { margin: 0; line-height: 1.9; white-space: pre-wrap; overflow-wrap: anywhere; }
+    .event { padding: 12px 14px; margin: 10px 0; background: #20343d; border-radius: 7px; color: #c5d4d0; overflow-wrap: anywhere; white-space: pre-wrap; }
+    .action { display: grid; gap: 10px; }
+    textarea, select { width: 100%; padding: 10px; background: #0e2028; color: white; border: 1px solid #587078; border-radius: 7px; }
+    textarea { min-height: 180px; resize: vertical; line-height: 1.75; }
+    details { margin: 16px 0; color: #cbd9d2; }
+    summary { cursor: pointer; }
+    #error { color: #ffc398; }
+    #error.pending { color: #c9d9cf; }
+    #error:empty { display: none; }
+    @media (max-width: 760px) {
+      .grid { grid-template-columns: 1fr; gap: 0; }
+      .banner { padding: 22px; }
+      .banner:after { left: 60%; }
+      header, main { padding: 14px; }
+      .log { max-height: 70vh; }
+    }
+  </style>
+</head>
+<body>
+  <header><strong>☾　月隐村</strong><button id="restart" hidden>重新开局</button></header>
+  <main>
+    <section class="banner">
+      <small id="mode">六人狼人杀</small>
+      <h1>月隐村</h1>
+      <p id="subtitle">你与五位独立模型玩家同桌。</p>
+    </section>
+    <div class="grid">
+      <div>
+        <section class="panel"><h2>玩家席位</h2><div id="seats" class="seats"></div></section>
+        <section class="panel">
+          <h2 id="phase">入座准备</h2>
+          <div class="action" id="controls"></div>
+          <p role="status" aria-live="polite" id="error"></p>
+        </section>
+        <details>
+          <summary>本桌规则</summary>
+          <p>2 狼人、1 预言家、3 村民。每夜狼人选择一人出局，预言家查验一人。你是狼人时由你决定夜袭目标。白天按座次发言，再同时投票。最高票并列则无人出局。狼人全部出局，好人胜；狼人达到存活人数一半，狼人胜。出局后可以观战。</p>
+        </details>
+      </div>
+      <section class="panel"><h2>村庄纪事</h2><div class="log" id="log" tabindex="0" aria-label="公开发言与对局记录"></div></section>
+    </div>
+  </main>
+  <script>
+    const $ = id => document.getElementById(id);
+    const names = ['你', '阿岚', '白露', '老周', '栗子', '青禾'];
+    let game = null;
+    let busy = false;
+    let token = sessionStorage.getItem('wolf-token');
+
+    function element(tag, text, className = '') {
+      const node = document.createElement(tag);
+      node.textContent = text;
+      node.className = className;
+      return node;
+    }
+
+    function setBusy(value) {
+      busy = value;
+      $('controls').setAttribute('aria-busy', String(value));
+      document.querySelectorAll('button, textarea, select').forEach(node => {
+        node.disabled = value;
+      });
+    }
+
+    async function request(path, data) {
+      if (busy) return;
+      const previousLength = game?.log.length || 0;
+      const start = Date.now();
+      const isDiscussion = path === 'action' && game?.phase === 'talk';
+      setBusy(true);
+      $('error').className = 'pending';
+      function showProgress() {
+        const seconds = Math.floor((Date.now() - start) / 1000);
+        $('error').textContent = isDiscussion
+          ? `玩家正在依次阅读前面的发言并组织回应，已等待 ${seconds} 秒。整轮发言完成后会一起显示。`
+          : `正在处理对局，请稍候${seconds ? ' · 已等待 ' + seconds + ' 秒' : ''}。`;
+      }
+      showProgress();
+      const timer = setInterval(showProgress, 1000);
+      try {
+        const response = await fetch('/api/' + path, {
+          method: data ? 'POST' : 'GET',
+          headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + token },
+          body: data ? JSON.stringify(data) : undefined
+        });
+        const answer = await response.json();
+        if (!response.ok) {
+          if (response.status === 404) {
+            sessionStorage.removeItem('wolf-token');
+            token = null;
+            game = null;
+            render();
+          }
+          throw new Error(answer.error || '请求失败，请重试。');
+        }
+        if (answer.token) {
+          token = answer.token;
+          sessionStorage.setItem('wolf-token', token);
+        }
+        game = answer;
+        render(path === 'action' ? previousLength : null);
+        $('error').textContent = '';
+      } catch (error) {
+        $('error').className = '';
+        $('error').textContent = error.message;
+      } finally {
+        clearInterval(timer);
+        setBusy(false);
+      }
+    }
+
+    function renderSeats() {
+      $('seats').replaceChildren(...names.map((name, index) => {
+        const seat = game?.seats[index];
+        const card = element('div', '', 'seat');
+        card.classList.toggle('out', Boolean(seat && !seat.alive));
+        card.classList.toggle('mine', index === 0);
+        const heading = element('div', '', 'seat-name');
+        heading.append(element('span', String(index + 1).padStart(2, '0'), 'num'), element('b', seat?.name || name));
+        card.append(heading, element('small', [seat?.role, seat ? (seat.alive ? '在场' : '出局') : '待入座'].filter(Boolean).join(' · ')));
+        if (index > 0 && seat?.persona) {
+          const details = element('details', '', 'persona');
+          details.append(element('summary', seat.persona.label), element('p', seat.persona.description));
+          card.append(details);
+        }
+        if (index > 0) {
+          card.append(element('small', seat?.player?.label || '独立模型玩家', 'model'));
+        }
+        return card;
+      }));
+    }
+
+    function renderLog(firstNewIndex) {
+      const entries = game?.log || ['开局后在这里查看每位玩家的完整发言与票型。'];
+      const nodes = entries.map(text => {
+        const speech = text.match(/^([1-6]号\s+[^：\n]+)：([\s\S]*)$/);
+        if (!speech) return element('p', text, 'event');
+        const article = element('article', '', 'speech');
+        article.append(element('h3', speech[1]), element('p', speech[2]));
+        return article;
+      });
+      $('log').replaceChildren(...nodes);
+      if (firstNewIndex !== null && nodes[firstNewIndex]) {
+        const containerTop = $('log').getBoundingClientRect().top;
+        $('log').scrollTop += nodes[firstNewIndex].getBoundingClientRect().top - containerTop;
+      } else {
+        $('log').scrollTop = $('log').scrollHeight;
+      }
+    }
+
+    function render(firstNewIndex = null) {
+      const current = game;
+      $('restart').hidden = !current;
+      $('mode').textContent = current?.mode || '六人狼人杀';
+      $('subtitle').textContent = current
+        ? '你的身份 · ' + current.role + (current.seats[0].alive ? '' : '　已出局，正在观战')
+        : '你与五位独立模型玩家同桌。';
+      renderSeats();
+      renderLog(firstNewIndex);
+      const box = $('controls');
+      box.replaceChildren();
+      const phaseLabels = { night: '夜 · 夜间行动', talk: '天 · 轮流发言', vote: '天 · 放逐投票' };
+      $('phase').textContent = current
+        ? (current.winner ? current.winner + '获胜' : '第 ' + current.day + ' ' + phaseLabels[current.phase])
+        : '入座准备';
+      if (current?.private.length) {
+        box.append(element('small', '你的查验记录 · ' + current.private.join('，')));
+      }
+      const button = element('button', '开始对局');
+      if (!current || current.winner) {
+        if (current) button.textContent = '再玩一局';
+        button.onclick = () => request('new', {});
+        box.append(button);
+        return;
+      }
+      let targetSelect;
+      let speechInput;
+      if (current.targets.length) {
+        targetSelect = element('select', '');
+        targetSelect.setAttribute('aria-label', '选择目标座位');
+        for (const target of current.targets) {
+          const option = element('option', (target + 1) + '号 ' + names[target]);
+          option.value = target;
+          targetSelect.append(option);
+        }
+        box.append(targetSelect);
+      }
+      if (current.phase === 'talk' && current.seats[0].alive) {
+        speechInput = element('textarea', '');
+        speechInput.maxLength = current.speech_limit || 1600;
+        speechInput.placeholder = '说出你的判断、怀疑的玩家和理由。后面的玩家会结合你的发言作出回应…';
+        speechInput.setAttribute('aria-label', '你的发言');
+        const counter = element('small', '0 / ' + speechInput.maxLength + ' 字');
+        speechInput.oninput = () => { counter.textContent = speechInput.value.length + ' / ' + speechInput.maxLength + ' 字'; };
+        box.append(speechInput, counter);
+      }
+      const actionLabels = {
+        kill: '确认夜袭', check: '查验身份', sleep: '闭眼，等待天亮', watch: '观看天亮',
+        talk: current.seats[0].alive ? '发言并听大家讨论' : '听取讨论',
+        vote: current.seats[0].alive ? '确认投票' : '观看投票'
+      };
+      button.textContent = actionLabels[current.action] || '继续';
+      button.onclick = () => request('action', {
+        revision: current.revision,
+        target: targetSelect ? Number(targetSelect.value) : null,
+        speech: speechInput?.value || ''
+      });
+      box.append(button);
+    }
+
+    $('restart').onclick = () => {
+      if (game?.winner || confirm('结束当前对局，重新发牌？')) request('new', {});
+    };
+    render();
+    if (token) request('game');
+  </script>
+</body>
+</html>
